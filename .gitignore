@@ -1,0 +1,5 @@
+.vscode/
+__pycache__/
+/multi30k/vocab.de
+/multi30k/vocab.en
+/model/*
