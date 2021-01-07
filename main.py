@@ -42,7 +42,7 @@ def main(args):
         train_loader = get_loader(src['train'], tgt['train'], src_vocab, tgt_vocab, batch_size=args.batch_size, shuffle=True)
         valid_loader = get_loader(src['valid'], tgt['valid'], src_vocab, tgt_vocab, batch_size=args.batch_size)
 
-        best_loss = float('inf')
+        best_loss = 987654321
         for epoch in range(args.epochs):
             train_total_loss, valid_total_loss = 0.0, 0.0
             start = time.time()
@@ -72,20 +72,29 @@ def main(args):
 
                 prediction = model(batch.src, batch.trg, batch.src_mask, batch.trg_mask)
                 loss = valid_criterion(prediction, batch.trg_y, batch.ntokens)
-
                 valid_total_loss += loss
                 total_tokens += batch.ntokens
                 tokens += batch.ntokens
 
-            if valid_total_loss < best_loss:
+            if valid_total_loss.item() < best_loss:
                 best_loss = valid_total_loss
                 best_model_state = model.state_dict()
                 best_optimizer_state = optimizer.optimizer.state_dict()
 
             elpsed = time.time() - start
-            print(f"""{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())} || [{epoch}/{args.epochs}], train_loss = {train_total_loss:.4f}, valid_loss = {valid_total_loss:.4f}, Tokens per Sec = {tokens / elpsed}""")
+            print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) +  "|| [" + str(epoch) + "/" + str(args.epochs) + "], train_loss = " + str(train_total_loss.item()) + ", valid_loss = " + str(valid_total_loss.item()) + ", Tokens per Sec = " + str(tokens.item() / elpsed))
             tokens = 0
             start = time.time()
+
+            if epoch % 100 == 0:
+                # Save model
+                torch.save({
+                    'epoch': args.epochs,
+                    'model_state_dict': best_model_state,
+                    'optimizer_state': best_optimizer_state,
+                    'loss': best_loss
+                }, args.model_dir + "/intermediate.pt")
+                print("Model saved")
             
         # Save model
         torch.save({
@@ -93,11 +102,11 @@ def main(args):
             'model_state_dict': best_model_state,
             'optimizer_state': best_optimizer_state,
             'loss': best_loss
-        }, f"{args.model_dir}/best.pt")
+        }, args.model_dir + "/best.pt")
         print("Model saved")
     else:
         # Load the model
-        checkpoint = torch.load(f"{args.model_dir}/best.pt", map_location=device)
+        checkpoint = torch.load(args.model_dir + "/" + args.model_name, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.optimizer.load_state_dict(checkpoint['optimizer_state'])
         model.eval()
@@ -139,7 +148,7 @@ def main(args):
             #  [0, 6, 1, 2, 2]]
             pred += seq2sen(pred_batch.tolist(), tgt_vocab)
 
-        with open('results/pred.txt', 'w') as f:
+        with open('results/pred.txt', 'w', encoding='utf-8') as f:
             for line in pred:
                 f.write('{}\n'.format(line))
 
@@ -169,6 +178,11 @@ if __name__ == '__main__':
         '--model_dir',
         type=str,
         default='./model'
+    )
+    parser.add_argument(
+        '--model_name',
+        type=str,
+        default='best.pt'
     )
     args = parser.parse_args()
 
